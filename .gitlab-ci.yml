@@ -1,0 +1,57 @@
+# This file is a template, and might need editing before it works on your project.
+# Official framework image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/node/tags/
+image: registry-internal.cn-shanghai.aliyuncs.com/czy/node:cac6fe3d
+
+before_script:
+  - ossutil config -e $ALIYUN_OSS_ENDPOINT -i $ALIYUN_OSS_KEYID -k $ALIYUN_OSS_KEYSECRET
+
+stages:
+  - build
+  - alpha
+  - release
+
+# This folder is cached between builds
+# http://docs.gitlab.com/ce/ci/yaml/README.html#cache
+cache:
+  paths:
+  - node_modules/
+
+build:
+  stage: build
+  script:
+   - npm install --registry=https://registry.npm.taobao.org
+   - npm run build
+  tags:
+    - docker
+    - node
+   
+alpha:
+  stage: alpha
+  variables:
+    ENV_TYPE: "DEV"
+    ALIYUN_OSS_BUCKETNAME: h5-wechat-netshop-dsgj
+  script:
+    - npm install --registry=https://registry.npm.taobao.org
+    - npm run build
+    - rm -rf .git .gitlab-ci.yml
+    - ossutil cp -ru dist/ oss://$ALIYUN_OSS_BUCKETNAME
+  tags:
+    - docker
+    - node
+  when: manual
+  
+release:
+  stage: release
+  variables:
+    ENV_TYPE: "PROD"
+    ALIYUN_OSS_BUCKETNAME: dsgj-wechat-netshop
+  script:
+    - npm install --registry=https://registry.npm.taobao.org
+    - npm run build
+    - rm -rf .git .gitlab-ci.yml
+    - ossutil cp -ru dist/ oss://$ALIYUN_OSS_BUCKETNAME
+  tags:
+    - docker
+    - node
+  when: manual
